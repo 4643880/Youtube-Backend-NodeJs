@@ -2,9 +2,10 @@
   "name": "youtube-backend",
   "version": "1.0.0",
   "description": "A fully functional youtube backend with Node Js.",
-  "main": "index.js",
+  "main": "src/index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "nodemon src/index.js"
   },
   "keywords": [
     "youtube",
@@ -12,5 +13,8 @@
     "nodejs"
   ],
   "author": "Aizaz Haider",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
 }
