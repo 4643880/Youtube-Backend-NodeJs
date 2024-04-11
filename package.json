@@ -1,0 +1,16 @@
+{
+  "name": "youtube-backend",
+  "version": "1.0.0",
+  "description": "A fully functional youtube backend with Node Js.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "youtube",
+    "backend",
+    "nodejs"
+  ],
+  "author": "Aizaz Haider",
+  "license": "ISC"
+}
