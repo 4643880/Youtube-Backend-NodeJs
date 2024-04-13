@@ -1,7 +1,16 @@
 
 
 import connectToDb from "./db/mongodb_client.js";
-await connectToDb();
+import { app } from "./app.js";
+
+
+await connectToDb().then(() => {
+    app.listen(process.env.PORT || 8000, () => {
+        console.log(`Connected to port: ${process.env.PORT}`);
+    });
+}).catch((err) => {
+    console.error("Error: ", err);
+});
 
 
 
