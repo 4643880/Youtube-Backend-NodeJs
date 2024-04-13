@@ -1,9 +1,9 @@
 
 
 
-export { asyncHandler };
 
-// creted wrapper function that is passing a function in parameter and calling it in the try and hadling the exceptions
+
+// Created wrapper function that is passing a function in parameter and calling it in the try block and handling the exceptions
 const asyncHandler = (fn) => {
   async (err, req, res, next) => {
     try {
@@ -16,7 +16,7 @@ const asyncHandler = (fn) => {
     }
   };
 }; 
-
+export { asyncHandler };
 
 /* 
 // Difficult Wrapper
