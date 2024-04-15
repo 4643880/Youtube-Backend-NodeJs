@@ -54,7 +54,7 @@ const userSchema = new mongoose.Schema(
 // Using pre hook of the mongoose that will call before saving, only if the password is modified
 userSchema.pre("save", async function (next) {
   if (this.isModified("password")) {
-    this.password = bcrypt.hash(this.password, 10);
+    this.password = await bcrypt.hash(this.password, 10);
     next();
   } else {
     return next();
