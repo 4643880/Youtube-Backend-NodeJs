@@ -85,7 +85,7 @@ userSchema.methods.generateAccessToken = function () {
 };
 
 // Designing Custom Methods to generate Refresh Token
-userSchema.methods.generateAccessToken = function () {
+userSchema.methods.generateRefreshToken = function () {
   var refreshToken = jwt.sign(
     {
       _id: this._id,
