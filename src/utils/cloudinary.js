@@ -17,10 +17,11 @@ const uploadOnCloudinary = async (localFilePath) => {
         localFilePath,
         { resource_type: "auto" },
         function (error, result) {
-          console.log(`Custom Message From Cloudinary.js: ${result}`);
+          console.log(`Custom Message From Cloudinary.js: ${result.url}`);
         }
       );
       console.log(`Cloudinary URL: ${res.url}`);
+      fs.unlinkSync(localFilePath);
       return res;
     }
   } catch (error) {

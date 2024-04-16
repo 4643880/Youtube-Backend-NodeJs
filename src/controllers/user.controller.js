@@ -2,8 +2,24 @@ import { asyncHandler } from "../utils/async_handler.js";
 import { ApiError } from "../utils/api_error_handler.js";
 import { User } from "../models/user.models.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { ApiResponse } from "../utils/api_response_handler.js";
+import fs from "fs";
+import { DB_NAME } from "../constants.js";
 
 const registerUser = asyncHandler(async (req, res, next) => {
+ 
+  var avatarLocalPath = "";
+  var coverImageLocalPath = "";
+
+  if (Array.isArray(req?.files?.avatar) && req?.files?.avatar.length > 0) {
+    avatarLocalPath = req?.files?.avatar[0]?.path;
+  }
+  if (
+    Array.isArray(req?.files?.coverImage) &&
+    req?.files?.coverImage.length > 0
+  ) {
+    coverImageLocalPath = req?.files?.coverImage[0].path;
+  }
   // get user details from frontend
   const {
     username,
@@ -19,35 +35,46 @@ const registerUser = asyncHandler(async (req, res, next) => {
   // validation check - not empty
   if (
     [fullName, email, username, password].some(
-      (myfield) => myfield?.trim() === "" || myfield == null // after trim if any one is empty then it will return true, sum is just like map function on list
+      (myfield) => myfield == null || myfield.trim() === "" // after trim if any one is empty then it will return true, sum is just like map function on list
     )
   ) {
-    console.log("reached here");
+    if (avatarLocalPath != null && avatarLocalPath != "") {
+      await fs.unlinkSync(avatarLocalPath);
+    }
+    if (coverImageLocalPath != null && coverImageLocalPath != "") {
+      await fs.unlinkSync(coverImageLocalPath);
+    }
     throw new ApiError(400, "All fields are required.");
   }
 
   // check if the user already exists - email or username
-  const existingUser = User.findOne({ $or: [{ username }, { email }] });
-  if (existingUser) {
+  const existingUser = await User.findOne({ $or: [{ username }, { email }] });
+  if (existingUser) {    
+    if (avatarLocalPath != null && avatarLocalPath != "") {
+      await fs.unlinkSync(avatarLocalPath);
+    }
+    if (coverImageLocalPath != null && coverImageLocalPath != "") {
+      await fs.unlinkSync(coverImageLocalPath);
+    }
     throw new ApiError(409, "User already exists with given email or username");
   }
 
+
   // check for images, check for avatar
-  console.log(req?.files?.avatar[0]?.path);
-  const avatarLocalPath = req?.files?.avatar[0]?.path;
-  const coverImageLocalPath = req?.files?.coverImage[0].path;
-  if (avatarLocalPath === "") {
+  // console.log(req?.files);
+  // console.log("=====> " + req?.files?.avatar[0]?.path);
+  if (avatarLocalPath === "" || avatarLocalPath == null) {
     throw new ApiError(400, "Avatar file is required");
   }
 
   // upload them to cloudinary, avatar
   const myAvatar = await uploadOnCloudinary(avatarLocalPath);
   var myCoverImage = "";
-  if (coverImageLocalPath != "") {
-    myCoverImage = await uploadOnCloudinary(avatarLocalPath);
+  if (coverImageLocalPath != "" || myCoverImage != null) {
+    myCoverImage = await uploadOnCloudinary(coverImageLocalPath);
   }
 
-  if (!myAvatar) {
+  if (myAvatar == null) {
     throw new ApiError(400, "Avatar file is necessary to upload on cloudinary");
   }
 
@@ -68,15 +95,26 @@ const registerUser = asyncHandler(async (req, res, next) => {
 
   // check for user creation
   if (!createdUser) {
+    if (avatarLocalPath != null && avatarLocalPath != "") {
+      await fs.unlinkSync(avatarLocalPath);
+    }
+    if (coverImageLocalPath != null && coverImageLocalPath != "") {
+      await fs.unlinkSync(coverImageLocalPath);
+    }
     throw new ApiError(500, "Something went wrong while registering the user");
   }
 
   // return the response
-  res.status(201).json(new ApiResponse(200, createdUser,"success", "User registered successfully."));
-
-  // return res.status(200).json({
-  //     message: "pro developer",
-  // })
+  res
+    .status(201)
+    .json(
+      new ApiResponse(
+        200,
+        createdUser,
+        "success",
+        "User registered successfully."
+      )
+    );
 });
 
 export { registerUser };

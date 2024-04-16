@@ -5,7 +5,7 @@ import { app } from "./app.js";
 
 
 await connectToDb().then(() => {
-    app.listen(process.env.PORT || 8000, () => {
+    app.listen(process.env.PORT || 8080, () => {
         console.log(`Connected to port: ${process.env.PORT}`);
     });
 }).catch((err) => {
