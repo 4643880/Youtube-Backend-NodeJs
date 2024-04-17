@@ -182,8 +182,9 @@ const loginUser = asyncHandler(async (req, res, next) => {
 
 const logoutUser = asyncHandler(async (req, res, next) => {
   // alphaUser comming from the verifyJWT middleware
+  
   await User.findByIdAndUpdate(
-    req.alphaUser._id,
+    req.newVerifiedUser._id,
     {
       $set: { refreshToken: undefined },
     },
@@ -199,7 +200,7 @@ const logoutUser = asyncHandler(async (req, res, next) => {
   return res
     .status(200)
     .clearCookie("accessToken", options)
-    .clearCookie("refreshToken", options);
+    .clearCookie("refreshToken", options).json(new ApiResponse(200, {}, "User logged out"));
 });
 
 export { registerUser, loginUser, logoutUser };
