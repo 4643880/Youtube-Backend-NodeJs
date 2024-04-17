@@ -27,7 +27,19 @@ const verifyJWT = asyncHandler(async (req, res, next) => {
     req.newVerifiedUser = newVerifiedUser; // accessing this in the logout function
     next();
   } catch (error) {
-    throw new ApiError(401, error.message || "Invalid access token.");
+    if (error.name === 'TokenExpiredError') {
+      // Handle JWT token expiration error
+      return res.status(401).json({
+        success: false,
+        message: "JWT token expired."
+      });
+    } else {
+      // Handle other errors
+      return res.status(401).json({
+        success: false,
+        message: error.message || "Invalid access token."
+      });
+    }
   }
 });
 

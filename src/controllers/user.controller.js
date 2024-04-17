@@ -5,6 +5,7 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/api_response_handler.js";
 import fs from "fs";
 import { DB_NAME } from "../constants.js";
+import jwt from "jsonwebtoken";
 
 const registerUser = asyncHandler(async (req, res, next) => {
   var avatarLocalPath = "";
@@ -182,7 +183,7 @@ const loginUser = asyncHandler(async (req, res, next) => {
 
 const logoutUser = asyncHandler(async (req, res, next) => {
   // alphaUser comming from the verifyJWT middleware
-  
+
   await User.findByIdAndUpdate(
     req.newVerifiedUser._id,
     {
@@ -200,7 +201,58 @@ const logoutUser = asyncHandler(async (req, res, next) => {
   return res
     .status(200)
     .clearCookie("accessToken", options)
-    .clearCookie("refreshToken", options).json(new ApiResponse(200, {}, "User logged out"));
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, {}, "User logged out"));
 });
 
-export { registerUser, loginUser, logoutUser };
+const validateAccessToken = asyncHandler(async (req, res) => {
+  try {
+    const incomingRefreshToken =
+      req.cookies.refreshToken || req.body.refreshToken;
+
+    if (!incomingRefreshToken) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
+    const decodedRefreshToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+
+    const user = await User.findById(decodedRefreshToken?._id);
+    
+    if (!user) {
+      throw new ApiError(401, "Invalid refresh Token");
+    }
+
+    if (incomingRefreshToken !== user?.refreshToken) {
+      throw new ApiError(401, "Refresh token is expired");
+    }
+
+    const { accessToken, refreshToken } =
+      await generateAccessAndRefreshToken(user._id);
+
+    // send cookie
+    const options = {
+      httpOnly: true,
+      secure: true,
+    }; // because i want to modify it from server, not from frontend
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
+      .json(
+        new ApiResponse(
+          200,
+          { accessToken, refreshToken },
+          "success",
+          "Access token refreshed successfully."
+        )
+      );
+  } catch (error) {
+    throw new ApiError(401, error?.message || "Invalid refresh token");
+  }
+});
+
+export { registerUser, loginUser, logoutUser, validateAccessToken };
