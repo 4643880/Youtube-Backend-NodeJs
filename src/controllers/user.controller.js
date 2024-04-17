@@ -6,6 +6,7 @@ import { ApiResponse } from "../utils/api_response_handler.js";
 import fs from "fs";
 import { DB_NAME } from "../constants.js";
 import jwt from "jsonwebtoken";
+import { upload } from "../middlewares/multer.middleware.js";
 
 const registerUser = asyncHandler(async (req, res, next) => {
   var avatarLocalPath = "";
@@ -220,7 +221,7 @@ const validateAccessToken = asyncHandler(async (req, res) => {
     );
 
     const user = await User.findById(decodedRefreshToken?._id);
-    
+
     if (!user) {
       throw new ApiError(401, "Invalid refresh Token");
     }
@@ -229,8 +230,9 @@ const validateAccessToken = asyncHandler(async (req, res) => {
       throw new ApiError(401, "Refresh token is expired");
     }
 
-    const { accessToken, refreshToken } =
-      await generateAccessAndRefreshToken(user._id);
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+      user._id
+    );
 
     // send cookie
     const options = {
@@ -255,4 +257,137 @@ const validateAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
-export { registerUser, loginUser, logoutUser, validateAccessToken };
+const changeCurrentPassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword, confirmPassowrd } = req.body;
+
+  if (newPassword != confirmPassowrd) {
+    throw new ApiError(400, "New passowrd & confirm password does not match.");
+  }
+
+  const resultOfPassword =
+    await newVerifiedUser?.isMyPasswordCorrect(oldPassword);
+
+  if (!resultOfPassword) {
+    throw new ApiError(400, "Invalid Password");
+  }
+
+  newVerifiedUser.password = newVerifiedUser;
+  await newVerifiedUser.save({ validateBeforeSave: false });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password changed successfully."));
+});
+
+const getCurrentUser = asyncHandler(async (req, res) => {
+  const user = req.newVerifiedUser.some("-password -refreshToken");
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        user,
+        "success",
+        "Current user fetched successfully."
+      )
+    );
+});
+
+const updateAccountDetails = asyncHandler(async (req, res) => {
+  const { fullName, email } = req.body;
+
+  if (!fullName && !email) {
+    throw new ApiError(400, "email or fullName is required");
+  }
+
+  const updatedUser = await User.findByIdAndUpdate(
+    req.newVerifiedUser._id,
+    { $set: { fullName: fullName, email: email } },
+    { new: true }
+  ).select("-password -refreshToken");
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        updatedUser,
+        "success",
+        "Account details updated successfully"
+      )
+    );
+});
+
+const updateUserAvatar = asyncHandler(async (req, res) => {
+  const avatarLocalPath = req.file.path;
+
+  if (avatarLocalPath === "" || avatarLocalPath == null) {
+    throw new ApiError(400, "Avatar file is required");
+  }
+
+  // upload them to cloudinary, avatar
+  const myAvatar = await uploadOnCloudinary(avatarLocalPath);
+  if (!myAvatar.url) {
+    throw new ApiError(400, "Error while uploading on avatar");
+  }
+
+  const updatedData = await User.findByIdAndUpdate(
+    req.newVerifiedUser._id,
+    { $set: { avatar: myAvatar.url } },
+    { new: true }
+  ).select("-password");
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        updatedData,
+        "success",
+        "Avatar updated successfully"
+      )
+    );
+});
+
+const updateCoverImage = asyncHandler(async (req, res) => {
+  const coverImageLocalPath = req.file.path;
+
+  if (coverImageLocalPath === "" || coverImageLocalPath == null) {
+    throw new ApiError(400, "Cover Image file is required");
+  }
+
+  // upload them to cloudinary, avatar
+  const myCoverImage = await uploadOnCloudinary(coverImageLocalPath);
+  if (!myCoverImage.url) {
+    throw new ApiError(400, "Error while uploading on avatar");
+  }
+
+  const updatedData = await User.findByIdAndUpdate(
+    req.newVerifiedUser._id,
+    { $set: { coverImage: myCoverImage.url } },
+    { new: true }
+  ).select("-password");
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        updatedData,
+        "success",
+        "Cover Image updated successfully"
+      )
+    );
+});
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  validateAccessToken,
+  changeCurrentPassword,
+  getCurrentUser,
+  updateAccountDetails,
+  updateUserAvatar,
+  updateCoverImage
+};
