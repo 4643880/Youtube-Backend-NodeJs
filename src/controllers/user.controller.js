@@ -7,7 +7,6 @@ import fs from "fs";
 import { DB_NAME } from "../constants.js";
 
 const registerUser = asyncHandler(async (req, res, next) => {
- 
   var avatarLocalPath = "";
   var coverImageLocalPath = "";
 
@@ -49,7 +48,7 @@ const registerUser = asyncHandler(async (req, res, next) => {
 
   // check if the user already exists - email or username
   const existingUser = await User.findOne({ $or: [{ username }, { email }] });
-  if (existingUser) {    
+  if (existingUser) {
     if (avatarLocalPath != null && avatarLocalPath != "") {
       await fs.unlinkSync(avatarLocalPath);
     }
@@ -58,7 +57,6 @@ const registerUser = asyncHandler(async (req, res, next) => {
     }
     throw new ApiError(409, "User already exists with given email or username");
   }
-
 
   // check for images, check for avatar
   // console.log(req?.files);
@@ -117,4 +115,91 @@ const registerUser = asyncHandler(async (req, res, next) => {
     );
 });
 
-export { registerUser };
+const generateAccessAndRefreshToken = async (userId) => {
+  try {
+    const user = await User.findById(userId);
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
+
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    return { accessToken, refreshToken };
+  } catch (error) {
+    throw new ApiError(
+      500,
+      "Some went wrong while generating refresh & access tokens"
+    );
+  }
+};
+
+const loginUser = asyncHandler(async (req, res, next) => {
+  // get user details from frontend
+  const { username, email, password } = req.body;
+  if (!username && !email) {
+    throw new ApiError(400, "Username or email is required");
+  }
+
+  // find the user
+  const user = await User.findOne({ $or: [{ username }, { email }] });
+  if (!user) {
+    throw new ApiError(404, "User does not exist");
+  }
+
+  // password check
+  const isPasswordValid = await user.isMyPasswordCorrect(password);
+  if (!isPasswordValid) {
+    throw new ApiError(401, "Invalid user credentials");
+  }
+
+  // if password correct then generate access token & refresh token
+  const { refreshToken, accessToken } = await generateAccessAndRefreshToken(
+    user._id
+  );
+
+  const loggedInUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  );
+
+  // send cookie
+  const options = {
+    httpOnly: true,
+    secure: true,
+  }; // because i want to modify it from server, not from frontend
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(
+        200,
+        { loggedInUser, accessToken, refreshToken },
+        "success",
+        "User Loggedin successfully."
+      )
+    );
+});
+
+const logoutUser = asyncHandler(async (req, res, next) => {
+  // alphaUser comming from the verifyJWT middleware
+  await User.findByIdAndUpdate(
+    req.alphaUser._id,
+    {
+      $set: { refreshToken: undefined },
+    },
+    { new: true } // getting latest new value after updating
+  );
+
+  // cookie options
+  const options = {
+    httpOnly: true,
+    secure: true,
+  }; // because i want to modify it from server, not from frontend
+
+  return res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options);
+});
+
+export { registerUser, loginUser, logoutUser };
