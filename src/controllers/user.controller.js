@@ -7,6 +7,7 @@ import fs from "fs";
 import { DB_NAME } from "../constants.js";
 import jwt from "jsonwebtoken";
 import { upload } from "../middlewares/multer.middleware.js";
+import { Subscription } from "../models/subscription.models.js";
 
 const registerUser = asyncHandler(async (req, res, next) => {
   var avatarLocalPath = "";
@@ -380,6 +381,86 @@ const updateCoverImage = asyncHandler(async (req, res) => {
     );
 });
 
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  const { username } = req.params;
+
+  if (!username?.trim()) {
+    throw new ApiError(400, "username is missing");
+  }
+
+  const channel = await User.aggregate([
+    {
+      $match: {
+        username: username,
+      }, // Have found 1 e.g chai or code then in the lookup will find it's other data
+    },
+    {
+      $lookup: {
+        from: "subscriptions", // because in the db it model name stores in lowercase with plural value
+        localField: "_id",
+        foreignField: "channel", // checking where "chai or code _id " channel name
+        as: "subscribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber", // checking where "chai or code _id " is subscriber name
+        as: "subscribedTo",
+      },
+    },
+    {
+      // adding result of some fiends in the origionial user object then sending complete user with additional fields
+      $addFields: {
+        subscribersCount: {
+          $size: "$subscribers",
+        },
+        subscribedToCount: {
+          $size: "$subscribedTo",
+        },
+        isSubscribed: {
+          $cond: {
+            if: {
+              $in: [req?.newVerifiedUser._id, "$subscribers.subscriber"],
+            },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    {
+      // will not send everything, will send only projected or selected fields
+      $project: {
+        fullName: 1,
+        username: 1,
+        email: 1,
+        avatar: 1,
+        coverImage: 1,
+        subscribersCount: 1,
+        subscribedToCount: 1,
+        isSubscribed: 1,
+      },
+    },
+  ]);
+
+  if (!channel?.length) {
+    throw new ApiError(400, "channel does not exist");
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        channel[0],
+        "success",
+        "User channel Fetched Successfully"
+      )
+    );
+});
+
 export {
   registerUser,
   loginUser,
@@ -389,5 +470,6 @@ export {
   getCurrentUser,
   updateAccountDetails,
   updateUserAvatar,
-  updateCoverImage
+  updateCoverImage,
+  getUserChannelProfile,
 };
